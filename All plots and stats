@@ -1,0 +1,888 @@
+# Load required libraries
+library(vegan)
+library(dplyr)
+
+data <- readxl::read_xlsx("Final_data_sheet_CF.xlsx", sheet = 1)
+###### Preparation of the tables ----------------------------------------------------------------------
+
+##### Clean the names of the variables
+colnames(data) <- c("decimallongtitude",
+                        "decimallatitude",
+                        "scientificname_use",
+                        "Depth_use",
+                        "Abyssal",
+                        "Abyssal_depth",
+                        "Hadal",
+                        "Hadal_depth",
+                        "minimumdepthinmeters",
+                        "maximumdepthinmeters",
+                        "depth",
+                        "N.segments",
+                        "N.elytrae",
+                        "Length",
+                        "Lmin",
+                        "Lmax",
+                        "Width.trunk",
+                        "Width.trunk.min",
+                        "Width.trunk.max",
+                        "Width.parapodia",
+                        "Width.parapodia.min",
+                        "Width.parapodia.max",
+                        "Width.chaetae",
+                        "Width.chaetae.min",
+                        "Width.chaetae.max",
+                        "Width.unknown",
+                        "Width.unknown.min",
+                        "Width.unknown.max",
+                        "Ocean.Zone",
+                        "Lifestyle",
+                        "Terrain",
+                        "Associated.Organism",
+                        "Substrate",
+                        "Feature.Type",
+                        "Eyes",
+                        "Branchia",
+                        "Cirri.length",
+                        "Pygidial.cirri.length",
+                        "Macrotubercles",
+                        "Microtubercles",
+                        "Papillae",
+                        "Ridges.mounds",
+                        "elytrae.thickness",
+                        "Reference",
+                        "Title",
+                        "RefID")
+
+str(data)
+
+## let's get rid of variables that are not useful
+data00 <- data[c("decimallongtitude",
+                  "decimallatitude",
+                  "scientificname_use",
+                  "minimumdepthinmeters",
+                  "maximumdepthinmeters",
+                  "Abyssal",
+                  "Hadal",
+                  "Lmin",
+                  "Lmax",
+                  "N.segments",
+                  "N.elytrae",
+                  "Width.trunk.min",
+                  "Width.trunk.max",
+                  "Width.parapodia.min",
+                  "Width.parapodia.max",
+                  "Width.chaetae.min",
+                  "Width.chaetae.max",
+                  "Width.unknown.min",
+                  "Width.unknown.max",
+                  "Ocean.Zone",
+                  "Lifestyle",
+                  "Terrain",
+                  "Associated.Organism",
+                  "Substrate",
+                  "Feature.Type",
+                  "Eyes",
+                  "Branchia",
+                  "Cirri.length",
+                  "Pygidial.cirri.length",
+                  "Macrotubercles",
+                  "Microtubercles",
+                  "Papillae",
+                  "Ridges.mounds",
+                  "elytrae.thickness",
+                  "Reference")]
+
+
+### Substitute question marks and "na" by NA
+
+data00[] <- lapply(data00, function(x) {
+  if (is.character(x) || is.factor(x)) {
+    x[x == "?"] <- NA
+  }
+  return(x)
+})
+
+### Lets make "na" as NA values
+data00[] <- lapply(data00, function(x) {
+  if (is.character(x) || is.factor(x)) {
+    x[x == "na"] <- NA
+  }
+  return(x)
+})
+
+
+
+## numeric
+data00[c("minimumdepthinmeters",
+       "maximumdepthinmeters",
+       "N.segments",
+       "N.elytrae",
+       "Lmin",
+       "Lmax",
+       "Width.trunk.min",
+       "Width.trunk.max",
+       "Width.parapodia.min",
+       "Width.parapodia.max",
+       "Width.chaetae.min",
+       "Width.chaetae.max",
+       "Width.unknown.min",
+       "Width.unknown.max")] <- lapply(data00[c("minimumdepthinmeters",
+                                            "maximumdepthinmeters",
+                                            "N.segments",
+                                            "N.elytrae",
+                                            "Lmin",
+                                            "Lmax",
+                                            "Width.trunk.min",
+                                            "Width.trunk.max",
+                                            "Width.parapodia.min",
+                                            "Width.parapodia.max",
+                                            "Width.chaetae.min",
+                                            "Width.chaetae.max",
+                                            "Width.unknown.min",
+                                            "Width.unknown.max")], as.numeric)
+
+
+## Cleaning the factors (binary or discrete are the same for R)
+
+unique(data00$Feature.Type)
+
+data00$Feature.Type <- tolower(gsub(" ", "_", data00$Feature.Type))
+data00$Feature.Type <- (gsub("sea_ridge", "ridge", data00$Feature.Type))
+
+
+
+data00[c("Abyssal",
+         "Hadal",
+         "Ocean.Zone",
+         "Lifestyle",
+         "Terrain",
+         "Feature.Type",
+         "Eyes",
+         "Branchia",
+         "Cirri.length",
+         "Pygidial.cirri.length",
+         "Macrotubercles",
+         "Microtubercles",
+         "Papillae",
+         "Ridges.mounds",
+         "elytra.thickness")] <- lapply(data00[c("Abyssal",
+                                                 "Hadal",
+                                                 "Ocean.Zone",
+                                                 "Lifestyle",
+                                                 "Terrain",
+                                                 "Feature.Type",
+                                                 "Eyes",
+                                                 "Branchia",
+                                                 "Cirri.length",
+                                                 "Pygidial.cirri.length",
+                                                 "Macrotubercles",
+                                                 "Microtubercles",
+                                                 "Papillae",
+                                                 "Ridges.mounds",
+                                                 "elytrae.thickness")],as.factor)
+
+###### Generation a records dataset ---------------------------------------------------------
+
+records <- data00[c("decimallongtitude",
+                 "decimallatitude",
+                 "scientificname_use",
+                 "minimumdepthinmeters",
+                 "maximumdepthinmeters",
+                 "Abyssal",
+                 "Hadal",
+                 "Terrain",
+                 "Associated.Organism",
+                 "Substrate",
+                 "Feature.Type",
+                 "Reference")]
+
+str(records)
+
+
+bathymetry <- records[c("scientificname_use", "minimumdepthinmeters", "maximumdepthinmeters")] %>%
+  group_by(scientificname_use) %>%
+  mutate(
+    depth.zone = case_when(
+      scientificname_use %in% c("Gesiella jameensis", "Pelagomacellicephala iliffei") ~ "Cave",
+      all(minimumdepthinmeters <= 1000) ~ "Shallow",
+      all(minimumdepthinmeters >= 1000 & maximumdepthinmeters <= 2999) ~ "Bathyal",
+      all(minimumdepthinmeters >= 3000 & maximumdepthinmeters <= 5999) ~ "Abyssal",
+      all(minimumdepthinmeters >= 3000 & maximumdepthinmeters <= 5999) ~ "Abyssal",
+      all(minimumdepthinmeters >= 6000) ~ "Hadal",
+      TRUE ~ "Ubiquitous"# fallback, in case of mixed values
+    )
+  ) %>%
+  ungroup()
+
+bathymetry <- records[c("scientificname_use", "minimumdepthinmeters", "maximumdepthinmeters")] %>%
+  group_by(scientificname_use) %>%
+  mutate(
+    depth.zone = case_when(
+      scientificname_use %in% c("Gesiella jameensis", "Pelagomacellicephala iliffei") ~ "Cave",
+      all(minimumdepthinmeters >= 6000) ~ "Hadal",
+      all(minimumdepthinmeters >= 3000) ~ "Abyssal",
+      all(minimumdepthinmeters >= 1000) ~ "Bathyal",
+      #all(minimumdepthinmeters <= 1000) ~ "Shallow",
+      TRUE ~ "Shallow"# fallback, in case of mixed values
+    )
+  ) %>%
+  ungroup()
+
+
+depth_summary <- records %>%
+  rowwise() %>%
+  mutate(depth_range = list(c(minimumdepthinmeters, maximumdepthinmeters))) %>%
+  ungroup() %>%
+  group_by(scientificname_use) %>%
+  summarize(
+    min.depth = min(unlist(depth_range), na.rm = TRUE),
+    max.depth = max(unlist(depth_range), na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+
+bathymetry <- bathymetry[!duplicated(bathymetry$scientificname_use),]
+
+bathymetry <- merge(depth_summary, bathymetry)
+rm(depth_summary)
+
+## Generating a trait dataset ------------------------------------------------------------
+
+traits <- data00[c("scientificname_use",
+                  "minimumdepthinmeters",
+                  "maximumdepthinmeters",
+                 "Lmin",
+                 "Lmax",
+                 "N.segments",
+                 "N.elytrae",
+                 "Width.trunk.min",
+                 "Width.trunk.max",
+                 "Width.parapodia.min",
+                 "Width.parapodia.max",
+                 "Width.chaetae.min",
+                 "Width.chaetae.max",
+                 "Width.unknown.min",
+                 "Width.unknown.max",
+                 "Eyes",
+                 "Branchia",
+                 "Cirri.length",
+                 "Pygidial.cirri.length",
+                 "Macrotubercles",
+                 "Microtubercles",
+                 "Papillae",
+                 "Ridges.mounds",
+                 "elytrae.thickness")]
+
+
+traits <- traits[!duplicated(traits),]
+
+
+
+#### Checking for a few relationships
+plot(Width.parapodia.max ~ Width.chaetae.max, data = traits)
+plot(Width.parapodia.max ~ Width.trunk.max, data = traits)
+plot(Lmin ~ Width.parapodia.max, data = traits)
+
+
+##### Filling width.parapodia after width.trunk
+modelb <- lm(Width.parapodia.max ~ Width.trunk.max, data = traits, na.action = na.omit)
+summary(modelb)
+traits$Width.parapodia.max[is.na(traits$Width.parapodia.max) & !is.na(traits$Width.trunk.max)] <- round(predict(modelb, newdata = traits[is.na(traits$Width.parapodia.max) & !is.na(traits$Width.trunk.max), ]),2)
+rm(modelb)
+
+
+# ##### Filling width.parapodia after width.chaetae [I filtered out a few measurements that are off - small than width.parapodia]
+ 
+ modelc <- lm(Width.parapodia.max ~ Width.chaetae.max, data = traits[ which( traits$Width.parapodia.max <= traits$Width.chaetae.max),], na.action = na.omit)
+ summary(modelc)
+ traits$Width.parapodia.max[is.na(traits$Width.parapodia.max) & !is.na(traits$Width.chaetae.max)] <- round(predict(modelc, newdata = traits[is.na(traits$Width.parapodia.max) & !is.na(traits$Width.chaetae.max), ]),2)
+
+  rm(modelc)
+
+## For the traits calculating, let's pick up the maximum values for each species for the continuous variables
+library(dplyr)
+traits.continuous <- traits %>%
+                      group_by(scientificname_use) %>%
+                      summarize(
+                        max_length = max(c(Lmin, Lmax), na.rm = TRUE),
+                        max_N.segments = max(N.segments, na.rm = TRUE),
+                        max_N.elytrae = max(N.elytrae, na.rm = TRUE),
+                        max_Width.trunk = max(c(Width.trunk.min, Width.trunk.max), na.rm = TRUE),
+                        max_Width.parapodia = max(c(Width.parapodia.min, Width.parapodia.max), na.rm = TRUE),
+                        max_Width.chaetae = max(c(Width.chaetae.min, Width.chaetae.max), na.rm = TRUE),
+                        max_Width.unknown = max(c(Width.unknown.min, Width.unknown.max), na.rm = TRUE)
+                      )
+
+traits.continuous <- traits.continuous %>%
+  mutate(across(where(is.numeric), ~ replace(., . == -Inf, NA)))
+
+
+## Adding values for Gesiella
+traits.continuous$max_length[54] <- 9.5
+traits.continuous$max_N.segments[54] <- 19
+traits.continuous$max_Width.parapodia[54] <- 2.5
+traits.continuous$max_Width.trunk[54] <- 1.5
+
+
+### Let's fill the missing Width_parapodia after the average of the genus
+library(stringr)
+traits.continuous <- traits.continuous %>%
+  mutate(genus = stringr::word(scientificname_use, 1))
+
+
+traits.continuous <- traits.continuous %>%
+  group_by(genus) %>%
+  mutate(max_Width.parapodia = ifelse(is.na(max_Width.parapodia), 
+                                      mean(max_Width.parapodia, na.rm = TRUE), 
+                                      max_Width.parapodia)) %>%
+  ungroup()
+
+traits.continuous$max_Width.parapodia <- gsub("NaN",NA,traits.continuous$max_Width.parapodia)
+traits.continuous$max_Width.parapodia <- round(as.numeric(traits.continuous$max_Width.parapodia), 2)
+
+# ### Lets complete max_Width.parapodia after max_unknown.parapodia when max_Width.parapodia is unknown and the genus monotypic
+# # not ideal, but the best we can do with the data
+
+ traits.continuous <- traits.continuous %>%
+   mutate(max_Width.parapodia = ifelse(is.na(max_Width.parapodia), max_Width.unknown, max_Width.parapodia))
+ 
+
+
+
+### Let's also complete body length after the average value of the genus
+traits.continuous <- traits.continuous %>%
+  group_by(genus) %>%
+  mutate(max_length = ifelse(is.na(max_length), 
+                                      mean(max_length, na.rm = TRUE), 
+                                      max_length)) %>%
+  ungroup()
+
+
+traits.continuous$max_length <- gsub("NaN",NA,traits.continuous$max_length)
+traits.continuous$max_length <- round(as.numeric(traits.continuous$max_length), 2)
+
+
+
+traits.continuous <- traits.continuous[c("scientificname_use",
+                                         "max_length",
+                                         "max_N.segments",
+                                         "max_N.elytrae",
+                                         "max_Width.parapodia",
+                                         "genus")]
+
+
+
+## Lets add the summary of the discrete characters
+traits.discrete <- data00[c("scientificname_use",
+                             "Eyes",
+                             "Branchia",
+                             "Cirri.length",
+                             "Pygidial.cirri.length",
+                             "Macrotubercles",
+                             "Microtubercles",
+                             "Papillae",
+                             "Ridges.mounds",
+                             "elytra.thickness")]
+
+
+traits.discrete <- traits.discrete %>%
+  group_by(scientificname_use) %>%
+  summarise(across(everything(), ~ first(na.omit(.x)))) %>%
+  ungroup()
+
+
+traits <- merge(traits.continuous, traits.discrete, by = "scientificname_use")
+
+traits <- merge(traits,bathymetry[c("scientificname_use","depth.zone")], by = "scientificname_use")
+
+rm(traits.discrete,traits.continuous,bathymetry)
+
+
+str(traits)
+
+
+
+
+############# Filter out traits with more than 30% missing data
+round(colSums(is.na(traits))/nrow(traits),2)
+
+traits <- traits[c("scientificname_use","genus","depth.zone", "max_length","max_N.segments","max_N.elytrae",
+                   "max_Width.parapodia","Eyes","Branchia","Cirri.length")]
+
+
+##### Check for colinearity between traits
+psych::pairs.panels(traits, cex.cor = 4) #Let's pick up a pearson correlation R < 0.7 (so we keep everything)
+
+
+##### Calculation of a Gower distance --------------------------------------
+
+traits.clean <- traits[c("max_length","max_N.segments","max_N.elytrae",
+                     "max_Width.parapodia","Eyes","Branchia","Cirri.length")]
+
+gower_dist <- BAT::gower(traits.clean)
+
+
+euc.pco <- labdsv::pco(gower_dist,k=4)
+SUM <- sum(euc.pco$eig[euc.pco$eig > 0])
+
+barplot(euc.pco$eig)
+
+(euc.pco$eig[1])/sum(euc.pco$eig[euc.pco$eig > 0])  # 0.91
+(euc.pco$eig[2])/sum(euc.pco$eig[euc.pco$eig > 0])  # 0.91
+
+(euc.pco$eig[1]+euc.pco$eig[2]+euc.pco$eig[3]+
+    euc.pco$eig[4])/sum(euc.pco$eig[euc.pco$eig > 0]) 
+
+
+ # Generation of the gower.based trait matrix
+ traits.gower <- euc.pco$points # <<-- Trait matrix based on Gower distance
+ colnames(traits.gower) <- c(paste(rep("axes_",4),1:4,sep=''))
+ 
+ 
+ rownames(traits.gower) <- traits$scientificname_use
+
+
+ord <- cmdscale(gower_dist)
+coordinates <- data.frame(ord)
+colnames(coordinates) <- c("PC1", "PC2")
+
+#### Calculate the centroids for each genera
+centroid <- coordinates %>% as_tibble() %>%
+  add_column(genus = traits$genus) %>%
+  group_by(genus) %>%
+  summarise(cen.1 = mean(PC1), cen.2 = mean(PC2))
+
+
+#### Add traits to the plot and extract the position of each trait
+fit <- vegan::envfit(ord, traits.clean, na.rm = TRUE)
+
+source("functions/get_position.R")
+{
+  plot(ord)
+  trait_position <- get_position(fit, add = TRUE)
+}
+
+#### Clean the trait information
+trait_pos <- data.frame(trait_position) %>%
+  rownames_to_column("Trait") %>%
+  mutate_at(
+    "Trait",
+    .funs = forcats::fct_recode,
+    "Body length" = "max_length",
+    "Number segments" = "max_N.segments",
+    "Number elytrae" = "max_N.elytrae",
+    "Body width" = "max_Width.parapodia",
+    "Blindness" = "Eyesn",
+    "Eyes" = "Eyesy",
+    "Abranchiated" = "Branchian",
+    "Branchiated" = "Branchiay",
+    "Short cirri" = "Cirri.lengthnot extending past",
+    "Long cirri" = "Cirri.lengthpast chaetae"
+    ) %>%
+  filter(!Trait %in% c("Eyes","Blindness") ## they are not significantly associated
+  )
+  
+### Prepare the plot
+theme_set(theme_minimal()) #Setting the theme
+
+#### Prepare palette
+myCol<-viridis::viridis(n=10, option="B") #Make Color palette 
+pie(seq_along(myCol),myCol,col= myCol)
+
+myCol <- viridis::viridis(n = 10, option = "B") # Make Color palette
+pie(seq_along(myCol), col = myCol)
+
+
+(plot_space_trait <-  ggplot(data = coordinates, aes(PC1, PC2)) + 
+    stat_density_2d(
+      aes(fill = ..level..), 
+      geom = "polygon", 
+      colour = NA, 
+      alpha = .5, 
+      h = .25
+    ) + 
+    geom_hline(aes(yintercept = 0), linetype = 3, colour = "gray70") + 
+    geom_vline(aes(xintercept = 0), linetype = 3, colour = "gray70") + 
+    geom_point(shape = 19, 
+               size = .5, 
+               colour = "grey") + 
+    scale_fill_gradientn(colours = rev(myCol)) + 
+    theme(
+      panel.background = element_rect(
+        fill = NA, 
+        colour = "black", 
+        size = 0.2, 
+        linetype = "solid"
+      ), 
+      panel.grid = element_blank(), 
+      legend.position = "none"
+    ) + 
+    labs(x = paste0("PCoA 1 (43%)"), y = "PCoA 2 (32%)") + 
+    ylim(-.45, .36) + xlim(-.36, .45) + 
+    coord_fixed())
+
+
+(plot_genera <-
+  ggplot(coordinates, aes(PC1, PC2)) +
+  stat_density_2d(
+    aes(fill = ..level..),
+    geom = "polygon",
+    colour = NA,
+    alpha = .5,
+    h = .25
+  ) +
+  geom_hline(aes(yintercept = 0), linetype = 3, colour = "gray70") +
+  geom_vline(aes(xintercept = 0), linetype = 3, colour = "gray70") +
+  geom_point(
+    data = centroid,
+    aes(x = cen.1, y = cen.2),
+    shape = 21,
+    fill = "white",
+    size = 2.5
+  ) +
+  geom_point(
+    data = centroid,
+    aes(x = cen.1, y = cen.2),
+    shape = 19,
+    colour = "black",
+    size = 0.5
+  ) +
+  scale_fill_gradientn(colours = rev(myCol)) +
+  ggrepel::geom_text_repel(data = centroid,
+                           aes(x = cen.1,
+                               y = cen.2,
+                               label = genus),
+                           max.overlaps = 30,
+                           box.padding = 1.5,
+                           point.padding = 0.5,
+                           size = 2,
+                           segment.size = 0.1,
+                           min.segment.length = 0.5) +
+  theme(
+    panel.background = element_rect(
+      fill = NA,
+      colour = "black",
+      size = 0.2,
+      linetype = "solid"
+    ),
+    panel.grid = element_blank(),
+    legend.position = "none"
+  )  +
+  labs(x = "PCoA 1 (43%)", y = "PCoA 2 (32%)") +
+    ylim(-.45, .36) + xlim(-.36, .45) +
+  coord_fixed())
+
+
+
+(plot_traits <-   ggplot(coordinates, aes(PC1, PC2)) +
+  stat_density_2d(
+    aes(fill = ..level..),
+    geom = "polygon",
+    colour = NA,
+    alpha = .5,
+    h = .25
+  ) +
+  geom_hline(aes(yintercept = 0), linetype = 3, colour = "gray70") +
+  geom_vline(aes(xintercept = 0), linetype = 3, colour = "gray70") +
+  geom_point(
+    data = trait_pos,
+    aes(x = Dim1, y = Dim2),
+    shape = 21,
+    fill = "white",
+    size = 2.5
+  ) +
+  geom_point(
+    data = trait_pos,
+    aes(x = Dim1, y = Dim2),
+    shape = 19,
+    colour = "black",
+    size = 1
+  ) +
+  scale_fill_gradientn(colours = rev(myCol)) +
+  ggrepel::geom_text_repel(data = trait_pos, aes(x = Dim1, y = Dim2, label = Trait)) +
+  theme(
+    panel.background = element_rect(
+      fill = NA,
+      colour = "black",
+      size = 0.2,
+      linetype = "solid"
+    ),
+    panel.grid = element_blank(),
+    legend.position = "none"
+  )  +
+  labs(x = "PCoA 1 (43%)", y = "PCoA 2 (32%)") +
+    ylim(-.45, .36) + xlim(-.36, .45) +
+  coord_fixed())
+
+
+
+
+########### Box plots
+
+depth_palette <- c(
+  Hadal = "#0b2e59",     # Deep Navy
+  Abyssal = "#376795",   # Slate Blue
+  Bathyal = "#8b5c29",   # Earthy Brown
+  Shallow = "#e69f00",   # Sandy Orange
+  Cave = "#88807d"       # Ash Grey
+)
+
+
+(Body_length <- traits %>%
+    select(depth.zone, max_length) %>%
+    mutate(
+      depth.zone = factor(depth.zone, levels = c("Cave", "Shallow", "Bathyal", "Abyssal", "Hadal")),
+      max_length = as.numeric(max_length)
+    ) %>%
+    na.exclude() %>%
+    ggplot(aes(x = depth.zone, y = max_length), fill = depth.zone) +
+    geom_boxplot(
+      aes(colour = depth.zone),
+      width = .15,
+      outlier.color = NA
+    ) +
+    geom_jitter(
+      aes(color = depth.zone),
+      width = 0.15,
+      size = 0.8,
+      alpha = 0.5
+    ) +
+    scale_fill_manual(values = c("grey20", depth_palette)) +
+    scale_colour_manual(values = c("grey20", depth_palette))
+)
+
+#Segment graph
+(segments <- traits %>%
+    select(depth.zone, max_N.segments) %>%
+    mutate(
+      depth.zone = factor(depth.zone, levels = c("Cave", "Shallow", "Bathyal", "Abyssal", "Hadal")),
+      max_N.segments = as.numeric(max_N.segments)
+    ) %>%
+    na.exclude() %>%
+    ggplot(aes(x = depth.zone, y = max_N.segments), fill = depth.zone) +
+    geom_boxplot(
+      aes(colour = depth.zone),
+      width = .15,
+      outlier.color = NA
+    ) +
+    geom_jitter(
+      aes(color = depth.zone),
+      width = 0.15,
+      size = 0.8,
+      alpha = 0.5
+    ) +  labs(
+      x = "Depth Zone",
+      y = "Number of Segments",
+      colour = "Depth Zone"
+    ) +
+    scale_fill_manual(values = c("grey20", depth_palette)) +
+    scale_colour_manual(values = c("grey20", depth_palette))
+)
+##### Modelling traits against environment --------------------------------------
+data.tests <- merge(records, traits) 
+
+
+### Length
+m.length <- lm(max_length ~ minimumdepthinmeters + Feature.Type,
+                 data = data.tests)
+
+performance::check_model(m.length) # The model is acceptable... 
+summary(m.length) # Yes, length increases with depth
+car::Anova(m.length) # and changes with feature... but also the genus!
+
+
+m.length.aov <- aov(max_length ~ Feature.Type + genus,
+                    data = data.tests)
+
+tukey.length <- TukeyHSD(m.length.aov, which = "Feature.Type")
+print(tukey.length)      # You can check the p-values and see which environments are different.
+
+
+plot(max_length ~ minimumdepthinmeters, data = data.tests)
+boxplot(max_length ~ Feature.Type, data = data.tests)
+
+rm(m.length,m.length.aov, tukey.length)
+
+### The number of species per genera changed with depth... so we cannot tell what is the process behind the patterns we see
+m.genus.depth <- aov(minimumdepthinmeters ~ genus,
+                     data = data.tests)
+m.genus.feature <- aov(Feature.Type ~ genus,
+                     data = data.tests)
+
+performance::check_model(m.genus.depth) # The model is acceptable... 
+summary(m.genus.depth) # Yes, length increases with depth
+car::Anova(m.genus.depth) # and changes with feature... but also the genus!
+
+m.genus.depth.tk <- TukeyHSD(m.genus.depth, which = "genus")
+print(m.genus.depth.tk)      # You can check the p-values and see which environments are different.
+
+rm(m.genus.depth,m.genus.depth.tk)
+
+##### Top 10 Genera and their features plot --------------------------------------
+##Lets try that again
+
+library(ggplot2)
+library(dplyr)
+library(readxl)
+
+data <- read.csv("DATA_USE.csv")
+
+summarized_data <- data %>%
+  group_by(Feature_Type, scientificname_use) %>%
+  summarise(count = n(), .groups = "drop")
+
+ggplot(summarized_data, aes(x = Feature_Type, y = count, fill = scientificname_use)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Feature Type", y = "Number of Specimens", 
+       title = "Specimens Collected per Feature Type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(stringr)
+
+
+summarized_data <- data %>%
+  mutate(genus = word(scientificname_use, 1)) %>%  # Extract first word as genus
+  group_by(Feature_Type, genus) %>%
+  summarise(count = n(), .groups = "drop")
+
+
+ggplot(summarized_data, aes(x = Feature_Type, y = count, fill = genus)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Feature Type", y = "Number of Specimens", 
+       title = "Specimens Collected per Feature Type by Genus") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_viridis_d() +  # Color-blind friendly palette
+  guides(fill = guide_legend(title = "Genus"))
+
+top_n_genera <- summarized_data %>%
+  group_by(genus) %>%
+  summarise(total = sum(count)) %>%
+  top_n(10, total) %>%
+  pull(genus)
+
+filtered_data <- summarized_data %>%
+  filter(genus %in% top_n_genera)
+
+# Then use filtered_data in your ggplot command
+library(ggplot2)
+library(viridis)
+
+ggplot(filtered_data, aes(x = Feature_Type, y = count, fill = genus)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Feature Type", y = "Number of Specimens", 
+       title = "Specimens Collected per Feature Type by Genus") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette = "Set3")+  # Distinct, perceptually uniform colors
+  guides(fill = guide_legend(title = "Genus"))
+
+
+
+#Lets determine which are most common
+library(dplyr)
+library(tidyr)
+library(readxl)
+
+genus_counts <- data %>%
+  mutate(genus = word(scientificname_use, 1)) %>%
+  group_by(Feature_Type, genus) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  spread(Feature_Type, count, fill = 0)
+
+genus_presence <- genus_counts %>%
+  mutate(feature_type_count = rowSums(select(., -genus) > 0)) %>%
+  arrange(desc(feature_type_count))
+
+print(head(genus_presence, 10))         
+
+all_features <- genus_presence %>%
+  filter(feature_type_count == ncol(genus_counts) - 1)
+print(all_features)         
+
+#Ocean Zone
+summarized_data <- data %>%
+  mutate(genus = word(scientificname_use, 1)) %>%
+  group_by(Ocean_Zone, genus) %>%
+  summarise(count = n(), .groups = "drop")
+
+ggplot(summarized_data, aes(x = Ocean_Zone, y = count, fill = genus)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Ocean Zone", y = "Number of Specimens", 
+       title = "Specimens Collected per Ocean Zone by Genus") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_viridis_d()
+
+top_n_genera <- summarized_data %>%
+  group_by(genus) %>%
+  summarise(total = sum(count)) %>%
+  top_n(10, total) %>%
+  pull(genus)
+
+filtered_data <- summarized_data %>%
+  filter(genus %in% top_n_genera)
+
+ggplot(filtered_data, aes(x = Ocean_Zone, y = count, fill = genus)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Ocean Zone", y = "Number of Specimens", 
+       title = "Specimens Collected per Ocean Zone by Genus") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_viridis_d()
+
+# Assuming your data is already loaded as 'data'
+genus_distribution <- data %>%
+  mutate(genus = word(scientificname_use, 1)) %>%
+  group_by(genus, Ocean_Zone) %>%
+  summarise(presence = 1, .groups = "drop") %>%
+  pivot_wider(names_from = Ocean_Zone, values_from = presence, values_fill = 0) %>%
+  mutate(zone_count = rowSums(select(., -genus))) %>%
+  arrange(desc(zone_count))
+
+# Print the top genera present in the most ocean zones
+print(head(genus_distribution, 10))
+
+#Latitude plot
+latitude_counts <- data %>%
+  group_by(decimallatitude) %>%
+  summarise(specimen_count = n(), .groups = "drop")
+
+dplyr::group_by()
+
+df_filtered <- data %>%
+  group_by(decimallatitude) %>%
+  filter(n() <= 200) %>%
+  ungroup()
+
+
+ggplot(latitude_counts, aes(x = decimallatitude, y = specimen_count)) +
+  geom_point() +  # Add points
+  geom_smooth(method = "loess", se = FALSE, color = "blue") +  # Add a smoothed line
+  labs(x = "Decimal Latitude", y = "Number of Specimens",
+       title = "Number of Specimens Collected by Decimal Latitude") +
+  theme_minimal()
+
+ggplot(data, aes(x = decimallatitude)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
+  labs(x = "Decimal Latitude", y = "Number of Specimens",
+       title = "Distribution of Specimens Across Decimal Latitudes") +
+  theme_minimal()
+
+
+
+
+
+
+
+
+
+
+
+
+
