@@ -845,31 +845,7 @@ genus_distribution <- data %>%
 # Print the top genera present in the most ocean zones
 print(head(genus_distribution, 10))
 
-#Latitude plot
-latitude_counts <- data %>%
-  group_by(decimallatitude) %>%
-  summarise(specimen_count = n(), .groups = "drop")
 
-dplyr::group_by()
-
-df_filtered <- data %>%
-  group_by(decimallatitude) %>%
-  filter(n() <= 200) %>%
-  ungroup()
-
-
-ggplot(latitude_counts, aes(x = decimallatitude, y = specimen_count)) +
-  geom_point() +  # Add points
-  geom_smooth(method = "loess", se = FALSE, color = "blue") +  # Add a smoothed line
-  labs(x = "Decimal Latitude", y = "Number of Specimens",
-       title = "Number of Specimens Collected by Decimal Latitude") +
-  theme_minimal()
-
-ggplot(data, aes(x = decimallatitude)) +
-  geom_histogram(binwidth = 1, fill = "skyblue", color = "black") +
-  labs(x = "Decimal Latitude", y = "Number of Specimens",
-       title = "Distribution of Specimens Across Decimal Latitudes") +
-  theme_minimal()
 
 
 
