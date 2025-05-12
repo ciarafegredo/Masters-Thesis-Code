@@ -724,9 +724,6 @@ rm(m.genus.depth,m.genus.depth.tk)
 
 library(ggplot2)
 library(dplyr)
-library(readxl)
-
-data <- read.csv("DATA_USE.csv")
 
 summarized_data <- data %>%
   group_by(Feature_Type, scientificname_use) %>%
